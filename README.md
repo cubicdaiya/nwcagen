@@ -1,6 +1,6 @@
 # nwcagen
 
-`nwcagen` - provides a command to generate worker_cpu_affinity configuration.
+`nwcagen` - provides a command to generate worker_cpu_affinity configuration for nginx.
 
 ## Setup
 
