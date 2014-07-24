@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"log"
 	"runtime"
 )
 
-func affinityEven(n int) string {
+func evenSetByCPU() []string {
 	var buffer bytes.Buffer
-	buffer.WriteString("worker_cpu_affinity ")
+	var result []string
+	n := runtime.NumCPU()
 	for i := 0; i < n; i++ {
 		for j := 0; j < n; j++ {
 			if i == j {
@@ -18,10 +20,38 @@ func affinityEven(n int) string {
 				buffer.WriteString("0")
 			}
 		}
-		if i != n-1 {
-			buffer.WriteString(" ")
+		result = append(result, buffer.String())
+		buffer.Reset()
+	}
+	return result
+}
+
+func affinityEven(workerNum int) string {
+	var buffer bytes.Buffer
+	evenSet := evenSetByCPU()
+	cpuNum := runtime.NumCPU()
+	n := workerNum / cpuNum
+	m := workerNum % cpuNum
+	buffer.WriteString("worker_cpu_affinity ")
+	for i := 0; i < n; i++ {
+		for j, even := range evenSet {
+			buffer.WriteString(even)
+			if i != n-1 || j != cpuNum-1 {
+				buffer.WriteString(" ")
+			}
 		}
 	}
+
+	if m > 0 {
+		buffer.WriteString(" ")
+		for i := 0; i < m; i++ {
+			buffer.WriteString(evenSet[i])
+			if i != m-1 {
+				buffer.WriteString(" ")
+			}
+		}
+	}
+
 	buffer.WriteString(";")
 	return buffer.String()
 }
@@ -29,10 +59,13 @@ func affinityEven(n int) string {
 func main() {
 	cpuNum := runtime.NumCPU()
 	workerNum := flag.Int("n", cpuNum, "worker number.")
-	bias := flag.String("b", "even", "cpu bias. default: even")
+	bias := flag.String("b", "even", "CPU bias. default: even")
 	flag.Parse()
 
-	if *bias == "even" && *workerNum == cpuNum {
+	if *bias == "even" {
+		if (*workerNum % cpuNum) != 0 {
+			log.Println("[warn]Workers are not assigned to CPUs evenly. Because worker number is indivisible by CPUs.")
+		}
 		fmt.Println(affinityEven(*workerNum))
 	} else {
 		fmt.Println("not supported situation")
